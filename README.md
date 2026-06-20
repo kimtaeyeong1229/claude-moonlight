@@ -10,12 +10,14 @@
 
 ## 빠른 시작 (사용자)
 1. 이 레포를 clone.
-2. 에이전트(claude)에게 **"설치해줘"** 라고 말한다 → `scripts/make-app.sh` 가 돌아
-   `/Applications/claude-moonlight.app` 가 생긴다.
-3. **`/Applications/claude-moonlight.app` 더블클릭** → 컨테이너가 자동 기동되고 뷰어가 열린다.
+2. `bash scripts/install.sh` 실행 (또는 에이전트에게 **"설치해줘"**). OS 를 감지해 자동 분기:
+   - **macOS** → 네이티브 앱 빌드 → `/Applications/claude-moonlight.app` 더블클릭
+   - **Linux** → 웹 모드. 앱 메뉴의 *Moonlight* 또는 `bash scripts/moonlight-web.sh` → 브라우저로 열림
+   - **Windows** → `scripts\moonlight-web.bat` (컨테이너 + 브라우저). 번역 워커는 POSIX 전용이라
+     번역까지 쓰려면 **WSL2(Linux)** 에서 설치 권장
+3. 어느 경우든: 컨테이너가 on-demand 로 기동되고 뷰어가 열린다.
 
-전제: 맥북에 **Docker Desktop**(실행 중)과 **로그인된 Claude CLI(`claude`)** 가 있어야 한다.
-(앱 실행 시 Docker 가 꺼져 있으면 자동으로 켜기를 시도한다.)
+전제: **Docker**(실행 중)와 **로그인된 Claude CLI(`claude`)**. (macOS 앱은 Docker 가 꺼져 있으면 자동 시작 시도.)
 
 ## 동작 방식 (on-demand · 네이티브 앱)
 앱은 브라우저가 아니라 **자체 창(WKWebView)** 으로 뜬다.
@@ -48,7 +50,7 @@
 | `app/sample/paper.json` | 즉시 데모용 정렬 샘플 |
 | `app/native/MoonlightApp.swift` | 네이티브 macOS 앱 창(WKWebView) 소스 |
 | `Dockerfile`·`docker-compose.yml` | 컨테이너(서버+워커+poppler+claude) |
-| `scripts/` | `make-app.sh`(앱 빌드)·`ensure-up.sh`(컨테이너 기동)·`moonlight-stop.sh`·`docker-entrypoint.sh` |
+| `scripts/` | `install.sh`(OS 분기 설치)·`make-app.sh`(macOS 앱)·`moonlight-web.sh`/`.bat`(Linux·Windows 웹)·`ensure-up.sh`(기동)·`moonlight-stop.sh`·`docker-entrypoint.sh` |
 | `plans/` | v0.1~v0.3 설계 문서 · `materials/` 리서치·프로토타입·참조 코드 |
 
 ## 로컬 검증 (Docker 없이)
