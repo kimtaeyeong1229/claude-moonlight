@@ -105,6 +105,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { true }
 
+    // On-demand lifecycle: quitting the app stops the container + host worker.
+    func applicationWillTerminate(_ note: Notification) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/bash")
+        p.arguments = ["\(PROJECT_DIR)/scripts/moonlight-stop.sh"]
+        var env = ProcessInfo.processInfo.environment
+        env["PROJECT_DIR"] = PROJECT_DIR
+        p.environment = env
+        do { try p.run(); p.waitUntilExit() } catch { /* nothing more we can do on quit */ }
+    }
+
     // --- WKUIDelegate: make JS dialogs actually appear ---
     func webView(_ wv: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
