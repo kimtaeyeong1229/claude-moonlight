@@ -1,0 +1,24 @@
+# Moonlight — single-service stack started on-demand by the macOS app launcher.
+#
+# The macOS app (/Applications/claude-moonlight.app) runs `docker compose up -d`
+# on launch, NOT at boot. Quitting the app leaves the container running for the
+# session; `scripts/moonlight-stop.sh` (compose down) stops it explicitly.
+
+services:
+  moonlight:
+    build: .
+    image: claude-moonlight:latest
+    container_name: claude-moonlight
+    ports:
+      - "127.0.0.1:8090:8090"          # bind to localhost only
+    volumes:
+      - ./data:/data                   # papers/ + jobs/ persist on the host (shared with host worker)
+    environment:
+      - SERVER_HOST=0.0.0.0          # bind all ifaces inside the container (port is host-loopback-only)
+      - RUN_WORKER=0                 # worker runs on the HOST (authenticated, non-root claude)
+    restart: unless-stopped            # survives the session; not a boot autostart
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8090/api/health'); " ]
+      interval: 10s
+      timeout: 4s
+      retries: 6

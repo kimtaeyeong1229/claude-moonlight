@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📄 논문 번역 대시보드</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+<meta name="theme-color" content="#1a8917">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#fff; --ink:#242424; --muted:#8a8a8a; --line:#e8e8e8;
+    --accent:#1a8917; --accent-d:#136d12; --warn:#c0392b; --queued:#b8860b;
+    --sidebar-w:340px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:var(--ink); background:var(--bg); display:flex; height:100vh; overflow:hidden;
+  }
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:var(--sidebar-w); min-width:var(--sidebar-w); height:100%;
+    background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column;
+    transition:margin-left .25s ease;
+  }
+  body.sidebar-collapsed #sidebar{ margin-left:calc(-1 * var(--sidebar-w)); }
+  /* floating toggle button (always visible, top-left of main) */
+  #toggleSide{
+    position:absolute; top:14px; left:14px; z-index:30;
+    width:38px; height:38px; border:1px solid var(--line); border-radius:9px;
+    background:#fff; color:#444; cursor:pointer; font-size:1.05rem; line-height:1;
+    box-shadow:0 2px 8px rgba(0,0,0,.08); transition:background .15s;
+  }
+  #toggleSide:hover{ background:#f2f2f2; }
+  .side-head{ padding:20px 18px 14px; border-bottom:1px solid var(--line); }
+  .side-head .titlebar{ display:flex; align-items:center; justify-content:space-between; margin:0 0 14px; }
+  .side-head h1{ font-size:1.15rem; font-weight:800; margin:0; }
+  .collapse-btn{
+    border:none; background:none; cursor:pointer; color:var(--muted);
+    font-size:1.2rem; line-height:1; padding:2px 6px; border-radius:6px;
+  }
+  .collapse-btn:hover{ background:#f0f0f0; color:#333; }
+  .add-btn{
+    width:100%; padding:11px; border:none; border-radius:9px; cursor:pointer;
+    background:var(--accent); color:#fff; font-size:.95rem; font-weight:700;
+    font-family:inherit; transition:background .15s;
+  }
+  .add-btn:hover{ background:var(--accent-d); }
+  /* toolbar: search + sort + tag filter */
+  .toolbar{ padding:0 14px 4px; border-bottom:1px solid var(--line); padding-bottom:12px; }
+  .search{
+    width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:9px;
+    font-family:inherit; font-size:.88rem; background:#fafafa; margin-top:10px;
+  }
+  .search:focus{ outline:none; border-color:var(--accent); background:#fff; }
+  .tools{ display:flex; gap:8px; margin-top:8px; }
+  .tool-btn{
+    flex:1; padding:7px 8px; border:1px solid var(--line); border-radius:8px; background:#fff;
+    cursor:pointer; font-family:inherit; font-size:.8rem; font-weight:600; color:#555;
+  }
+  .tool-btn:hover{ background:#f2f2f2; }
+  .tool-btn.active{ border-color:var(--accent); color:var(--accent-d); background:#f3faf2; }
+  #tagFilterPanel{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  #tagFilterPanel .tag{ cursor:pointer; opacity:.85; }
+  #tagFilterPanel .tag.active{ outline:2px solid #333; opacity:1; }
+  #tagFilterPanel .allchip{
+    font-size:.72rem; font-weight:700; padding:3px 11px; border-radius:20px;
+    border:1px solid var(--line); cursor:pointer; background:#fff; color:#666;
+  }
+  #tagFilterPanel .allchip.active{ border-color:var(--accent); color:var(--accent-d); background:#f3faf2; }
+  .side-list{ flex:1; overflow-y:auto; padding:10px; }
+  .empty{ color:var(--muted); font-size:.9rem; text-align:center; padding:40px 16px; line-height:1.7;}
+  .card{
+    border:1px solid var(--line); border-radius:11px; padding:13px 14px; margin-bottom:10px;
+    cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; position:relative;
+  }
+  .card:hover{ border-color:#cfcfcf; box-shadow:0 2px 10px rgba(0,0,0,.05); }
+  .card.active{ border-color:var(--accent); background:#f3faf2; }
+  .card.disabled{ cursor:default; }
+  .card .title{ font-size:.95rem; font-weight:700; line-height:1.4; margin-bottom:5px; word-break:keep-all; }
+  .card .meta{ font-size:.78rem; color:var(--muted); margin-bottom:2px; }
+  .card .desc{ font-size:.78rem; color:#666; line-height:1.5; margin-top:4px; }
+  .badge{
+    display:inline-block; font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:20px; margin-bottom:6px;
+  }
+  .badge.done{ background:#e7f6e7; color:var(--accent-d); }
+  .badge.processing{ background:#e8f0fe; color:#1a56c4; }
+  .badge.queued{ background:#fbf3e0; color:var(--queued); }
+  .badge.failed{ background:#fdecea; color:var(--warn); }
+  /* custom tags */
+  .tagrow{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-bottom:7px; }
+  .tagrow .badge{ margin-bottom:0; }
+  .tag{ display:inline-flex; align-items:center; font-size:.7rem; font-weight:700; padding:2px 9px; border-radius:20px; }
+  .tag-add{
+    width:21px; height:21px; border-radius:50%; border:1px dashed #c2c2c2; background:#fff; color:#999;
+    cursor:pointer; font-size:.9rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; padding:0;
+  }
+  .tag-add:hover{ border-color:var(--accent); color:var(--accent); }
+  /* tag editor modal */
+  #tagList{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; min-height:8px; }
+  #tagList .tag{ cursor:default; }
+  #tagList .tag .x{ margin-left:6px; cursor:pointer; opacity:.6; font-weight:900; }
+  #tagList .tag .x:hover{ opacity:1; }
+  #tagList .none{ color:var(--muted); font-size:.82rem; }
+  .swatches{ display:flex; gap:10px; }
+  .swatch{ width:30px; height:30px; border-radius:8px; cursor:pointer; border:3px solid transparent; }
+  .swatch.sel{ border-color:#333; }
+  .tagcount{ font-size:.74rem; color:var(--muted); margin-left:auto; }
+  /* progress */
+  .prog-wrap{ margin-top:9px; }
+  .prog-bar{ height:7px; background:#eee; border-radius:6px; overflow:hidden; }
+  .prog-fill{
+    height:100%; width:0%; border-radius:6px;
+    background:linear-gradient(90deg,#1a8917,#4caf50);
+    transition:width .6s ease;
+  }
+  .prog-fill.indeterminate{
+    width:35% !important; background:linear-gradient(90deg,#cfe9cf,#1a8917,#cfe9cf);
+    background-size:200% 100%; animation:slide 1.3s linear infinite;
+  }
+  @keyframes slide{ 0%{transform:translateX(-120%);} 100%{transform:translateX(330%);} }
+  .prog-info{ display:flex; justify-content:space-between; font-size:.72rem; color:var(--muted); margin-top:5px; }
+  .del{ position:absolute; top:10px; right:10px; border:none; background:none; color:#ccc; cursor:pointer; font-size:.95rem; line-height:1; padding:2px 4px;}
+  .del:hover{ color:var(--warn); }
+  /* ---------- Main ---------- */
+  #main{ flex:1; height:100%; position:relative; background:var(--bg); }
+  #viewer{ width:100%; height:100%; border:none; background:#fff; }
+  #placeholder{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--muted); text-align:center; padding:24px; gap:14px;
+  }
+  #placeholder .big{ font-size:3rem; }
+  #placeholder h2{ font-weight:700; color:#555; margin:0; }
+  #placeholder .pp-bar{ width:280px; }
+  .hidden{ display:none !important; }
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; z-index:50;
+  }
+  .modal{
+    background:#fff; width:min(520px,92vw); border-radius:14px; padding:26px 28px;
+    box-shadow:0 18px 60px rgba(0,0,0,.25);
+  }
+  .modal h2{ margin:0 0 6px; font-size:1.25rem; font-weight:800; }
+  .modal p.sub{ margin:0 0 18px; color:var(--muted); font-size:.85rem; }
+  .field{ margin-bottom:15px; }
+  .field label{ display:block; font-size:.82rem; font-weight:600; margin-bottom:6px; }
+  .field input, .field textarea{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px;
+    font-family:inherit; font-size:.92rem; color:var(--ink); background:#fafafa;
+  }
+  .field input:focus, .field textarea:focus{ outline:none; border-color:var(--accent); background:#fff; }
+  .field textarea{ resize:vertical; min-height:60px; }
+  .row{ display:flex; gap:12px; }
+  .row .field{ flex:1; }
+  .hint{ font-size:.74rem; color:var(--muted); margin-top:5px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
+  .btn{ padding:10px 18px; border-radius:9px; border:none; cursor:pointer; font-family:inherit; font-weight:700; font-size:.9rem; }
+  .btn.ghost{ background:#f0f0f0; color:#444; }
+  .btn.ghost:hover{ background:#e6e6e6; }
+  .btn.primary{ background:var(--accent); color:#fff; }
+  .btn.primary:hover{ background:var(--accent-d); }
+  .btn:disabled{ opacity:.55; cursor:default; }
+  .err{ color:var(--warn); font-size:.82rem; margin-top:10px; min-height:1em; }
+</style>
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="side-head">
+      <div class="titlebar">
+        <h1>📄 논문 번역 대시보드</h1>
+        <button class="collapse-btn" id="collapseSide" title="사이드바 닫기">«</button>
+      </div>
+      <button class="add-btn" id="openAdd">+ 새 논문 추가</button>
+    </div>
+    <div class="toolbar">
+      <input class="search" id="search" type="text" placeholder="🔍 제목 검색…" autocomplete="off">
+      <div class="tools">
+        <button class="tool-btn" id="sortBtn">정렬: 게재순</button>
+        <button class="tool-btn" id="tagToggle"># 태그 필터</button>
+      </div>
+      <div id="tagFilterPanel" class="hidden"></div>
+    </div>
+    <div class="side-list" id="list"><div class="empty">불러오는 중…</div></div>
+  </aside>
+
+  <main id="main">
+    <button id="toggleSide" title="사이드바 열기/닫기">☰</button>
+    <iframe id="viewer" class="hidden"></iframe>
+    <div id="placeholder">
+      <div class="big">📑</div>
+      <h2 id="phTitle">왼쪽에서 논문을 선택하세요</h2>
+      <div id="phSub" style="font-size:.9rem;"></div>
+      <div class="pp-bar hidden" id="phProg">
+        <div class="prog-bar"><div class="prog-fill" id="phFill"></div></div>
+        <div class="prog-info"><span id="phStage"></span><span id="phEta"></span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add modal -->
+  <div class="overlay hidden" id="modal">
+    <div class="modal">
+      <h2>새 논문 추가</h2>
+      <p class="sub">arXiv 링크와 범위를 입력하면 DeepSeek 때와 동일한 방식으로(Claude Opus 4.8 · ultracode) 한국어 번역본을 생성합니다.</p>
+      <div class="field">
+        <label>arXiv 링크</label>
+        <input id="f_url" type="text" placeholder="https://arxiv.org/abs/2501.12948" autocomplete="off">
+      </div>
+      <div class="row">
+        <div class="field"><label>시작 페이지</label><input id="f_start" type="number" min="1" value="1"></div>
+        <div class="field"><label>종료 페이지</label><input id="f_end" type="number" min="1" value="11"></div>
+      </div>
+      <div class="field">
+        <label>간단한 설명</label>
+        <textarea id="f_desc" placeholder="예) 8페이지의 6번 섹션까지만"></textarea>
+        <div class="hint">예) "11페이지의 6번 섹션(결론)까지", "그림·표는 본문 첫 언급 위치에"</div>
+      </div>
+      <div class="err" id="formErr"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancelAdd">취소</button>
+        <button class="btn primary" id="submitAdd">생성 시작</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag editor modal -->
+  <div class="overlay hidden" id="tagModal">
+    <div class="modal" style="width:min(420px,92vw)">
+      <h2>태그 편집</h2>
+      <p class="sub" id="tagPaperTitle"></p>
+      <div id="tagList"></div>
+      <div class="field">
+        <label>새 태그 <span class="tagcount" id="tagCount"></span></label>
+        <input id="tagText" type="text" maxlength="30" placeholder="내용 입력 후 색 고르고 추가">
+      </div>
+      <div class="field">
+        <label>색상</label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="err" id="tagErr"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="tagClose">닫기</button>
+        <button class="btn primary" id="tagAddBtn">추가</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = s => document.querySelector(s);
+const TAG_COLORS = [
+  {bg:'#e7f6e7', fg:'#176b16'}, // 초록
+  {bg:'#e8f0fe', fg:'#1a56c4'}, // 파랑
+  {bg:'#fdecea', fg:'#c0392b'}, // 빨강
+  {bg:'#fff4e0', fg:'#b9770e'}, // 주황
+  {bg:'#f3e8fd', fg:'#7d3cc4'}, // 보라
+];
+let activeId = null;
+let papers = [];
+let searchQ = "", sortMode = 0, tagFilter = null, showTags = false;
+const SORT_LABELS = ["게재순", "제목순", "추가순"];
+
+function fmtEta(sec){
+  if (sec == null) return "";
+  if (sec <= 0) return "곧 완료";
+  const m = Math.floor(sec/60), s = sec%60;
+  return m > 0 ? `~${m}분 ${s}초` : `~${s}초`;
+}
+
+function statusBadge(p){
+  if (p.status === "done") return "";  // 완료 논문엔 별도 완료 배지를 붙이지 않음
+  const map = {processing:"번역 중", queued:"대기 중", failed:"실패"};
+  return `<span class="badge ${p.status}">${map[p.status]||p.status}</span>`;
+}
+function dispTitle(p){ return p.en_title || p.title || p.id; }   // 항상 원본 영어 제목
+function viewPapers(){
+  let v = papers.slice();
+  const q = searchQ.trim().toLowerCase();
+  if (q) v = v.filter(p => dispTitle(p).toLowerCase().includes(q));
+  if (tagFilter) v = v.filter(p => (p.tags||[]).some(t=>t.text===tagFilter));
+  if (sortMode===0){            // 게재순 (publication): 연도 → arXiv id
+    v.sort((a,b)=> ((parseInt(a.year)||0)-(parseInt(b.year)||0)) || (a.arxiv_id||"").localeCompare(b.arxiv_id||""));
+  } else if (sortMode===1){     // 제목순
+    v.sort((a,b)=> dispTitle(a).localeCompare(dispTitle(b)));
+  } else {                      // 추가순 (최근 추가 먼저)
+    v.sort((a,b)=> (b.created_at||"").localeCompare(a.created_at||""));
+  }
+  return v;
+}
+function allTags(){
+  const seen={}, out=[];
+  papers.forEach(p=>(p.tags||[]).forEach(t=>{ if(!(t.text in seen)){ seen[t.text]=1; out.push(t); }}));
+  return out;
+}
+function renderTagPanel(){
+  const panel=$("#tagFilterPanel");
+  if(!showTags){ panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  const tags=allTags();
+  let html=`<span class="allchip ${!tagFilter?'active':''}" data-all="1">전체</span>`;
+  html+=tags.map(t=>{ const c=TAG_COLORS[t.color]||TAG_COLORS[0];
+    return `<span class="tag ${tagFilter===t.text?'active':''}" data-tagf="${escapeHtml(t.text)}" style="background:${c.bg};color:${c.fg}">${escapeHtml(t.text)}</span>`;}).join("");
+  if(!tags.length) html+=`<span style="color:var(--muted);font-size:.78rem;">아직 태그가 없습니다.</span>`;
+  panel.innerHTML=html;
+}
+
+function render(){
+  const list = $("#list");
+  if (!papers.length){
+    list.innerHTML = `<div class="empty">아직 논문이 없습니다.<br>“새 논문 추가”로 시작하세요.</div>`;
+    return;
+  }
+  const view = viewPapers();
+  if (!view.length){
+    list.innerHTML = `<div class="empty">검색·필터 결과가 없습니다.</div>`;
+    return;
+  }
+  list.innerHTML = view.map(p => {
+    const isDone = p.status === "done";
+    const isActive = p.id === activeId;
+    let prog = "";
+    if (p.status === "processing" || p.status === "queued"){
+      const pct = p.progress || 0;
+      const indet = p.status === "queued" || pct === 0;
+      prog = `<div class="prog-wrap">
+        <div class="prog-bar"><div class="prog-fill ${indet?'indeterminate':''}" style="width:${pct}%"></div></div>
+        <div class="prog-info"><span>${p.stage||""}</span><span>${p.status==='processing'?fmtEta(p.remaining_seconds):''}</span></div>
+      </div>`;
+    }
+    if (p.status === "failed"){
+      prog = `<div class="prog-info" style="color:var(--warn);margin-top:7px;">${(p.error||'처리 실패').slice(0,80)}</div>`;
+    }
+    const tagChips = (p.tags||[]).map(t=>{
+      const c = TAG_COLORS[t.color] || TAG_COLORS[0];
+      return `<span class="tag" style="background:${c.bg};color:${c.fg}">${escapeHtml(t.text)}</span>`;
+    }).join("");
+    return `<div class="card ${isActive?'active':''} ${isDone?'':'disabled'}" data-id="${p.id}" data-done="${isDone}">
+      <button class="del" data-del="${p.id}" title="삭제">✕</button>
+      <div class="tagrow">
+        ${statusBadge(p)}
+        ${tagChips}
+        <button class="tag-add" data-tagadd="${p.id}" title="태그 추가">+</button>
+      </div>
+      <div class="title">${escapeHtml(dispTitle(p))}</div>
+      <div class="meta">p.${p.start_page}–${p.end_page} · ${escapeHtml(arxivShort(p.arxiv_url))}${p.venue||p.year?` · ${escapeHtml(venueYear(p))}`:""}</div>
+      ${p.description?`<div class="desc">${escapeHtml(p.description)}</div>`:""}
+      ${prog}
+    </div>`;
+  }).join("");
+}
+
+function arxivShort(u){ const m=(u||"").match(/\d{4}\.\d{4,5}(v\d+)?/); return m?("arXiv:"+m[0]):(u||""); }
+function venueYear(p){
+  const v=(p.venue||"").trim(), y=(p.year||"").toString().trim();
+  if(!v) return y;
+  if(!y || /(19|20)\d{2}/.test(v)) return v;   // venue already contains a year
+  return v+" "+y;
+}
+function escapeHtml(s){ return (s||"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function openPaper(p){
+  activeId = p.id;
+  if (p.status === "done"){
+    $("#viewer").src = `/papers/${p.id}/paper.html?t=${Date.now()}`;
+    $("#viewer").classList.remove("hidden");
+    $("#placeholder").classList.add("hidden");
+  } else {
+    // show processing placeholder
+    $("#viewer").classList.add("hidden");
+    $("#placeholder").classList.remove("hidden");
+    $("#phTitle").textContent = dispTitle(p);
+    $("#phSub").textContent = p.status === "failed" ? (p.error||"처리에 실패했습니다.") : "번역본을 생성하는 중입니다…";
+    $("#phProg").classList.toggle("hidden", !(p.status==="processing"||p.status==="queued"));
+    const indet = p.status==="queued" || !(p.progress);
+    $("#phFill").className = "prog-fill" + (indet?" indeterminate":"");
+    $("#phFill").style.width = (p.progress||0)+"%";
+    $("#phStage").textContent = p.stage||"";
+    $("#phEta").textContent = p.status==="processing"?fmtEta(p.remaining_seconds):"";
+  }
+  render();
+}
+
+async function refresh(){
+  try{
+    const r = await fetch("/api/papers");
+    papers = await r.json();
+    render();
+    renderTagPanel();
+    // keep placeholder fresh if a processing paper is selected
+    if (activeId){
+      const p = papers.find(x=>x.id===activeId);
+      if (p && p.status!=="done" && !$("#placeholder").classList.contains("hidden")){
+        $("#phStage").textContent = p.stage||"";
+        $("#phEta").textContent = p.status==="processing"?fmtEta(p.remaining_seconds):"";
+        const indet = p.status==="queued" || !(p.progress);
+        $("#phFill").className = "prog-fill" + (indet?" indeterminate":"");
+        $("#phFill").style.width = (p.progress||0)+"%";
+      }
+      // auto-open when a freshly-processed paper becomes done
+      if (p && p.status==="done" && $("#viewer").classList.contains("hidden")) openPaper(p);
+    }
+  }catch(e){ /* keep last state */ }
+}
+
+// ---- events ----
+$("#list").addEventListener("click", e=>{
+  const del = e.target.closest("[data-del]");
+  if (del){ e.stopPropagation(); deletePaper(del.dataset.del); return; }
+  const tagadd = e.target.closest("[data-tagadd]");
+  if (tagadd){ e.stopPropagation(); openTagEditor(tagadd.dataset.tagadd); return; }
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const p = papers.find(x=>x.id===card.dataset.id);
+  if (p) openPaper(p);
+});
+
+async function deletePaper(id){
+  if (!confirm("이 논문을 삭제할까요?")) return;
+  await fetch(`/api/papers/${id}`, {method:"DELETE"});
+  if (activeId===id){ activeId=null; $("#viewer").classList.add("hidden"); $("#placeholder").classList.remove("hidden"); $("#phTitle").textContent="왼쪽에서 논문을 선택하세요"; $("#phProg").classList.add("hidden"); $("#phSub").textContent="";}
+  refresh();
+}
+
+// ---- sidebar collapse ----
+function setSidebar(collapsed){
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  try{ localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); }catch(e){}
+}
+$("#toggleSide").addEventListener("click", ()=> setSidebar(!document.body.classList.contains("sidebar-collapsed")));
+$("#collapseSide").addEventListener("click", ()=> setSidebar(true));
+try{ if(localStorage.getItem("sidebarCollapsed")==="1") setSidebar(true); }catch(e){}
+
+$("#openAdd").addEventListener("click", ()=>{ $("#formErr").textContent=""; $("#modal").classList.remove("hidden"); $("#f_url").focus(); });
+$("#cancelAdd").addEventListener("click", ()=> $("#modal").classList.add("hidden"));
+$("#modal").addEventListener("click", e=>{ if(e.target.id==="modal") $("#modal").classList.add("hidden"); });
+
+$("#submitAdd").addEventListener("click", async ()=>{
+  const btn = $("#submitAdd"); const err = $("#formErr");
+  const payload = {
+    arxiv_url: $("#f_url").value.trim(),
+    start_page: parseInt($("#f_start").value,10),
+    end_page: parseInt($("#f_end").value,10),
+    description: $("#f_desc").value.trim(),
+  };
+  err.textContent="";
+  btn.disabled=true; btn.textContent="생성 중…";
+  try{
+    const r = await fetch("/api/papers", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+    const data = await r.json();
+    if (!r.ok){ err.textContent = data.error || "오류가 발생했습니다."; }
+    else {
+      $("#modal").classList.add("hidden");
+      $("#f_url").value=""; $("#f_desc").value="";
+      await refresh();
+      const p = papers.find(x=>x.id===data.id);
+      if (p) openPaper(p);
+    }
+  }catch(e){ err.textContent="네트워크 오류: "+e.message; }
+  finally{ btn.disabled=false; btn.textContent="생성 시작"; }
+});
+
+// ---- tag editor ----
+let tagPid = null, editTags = [], selColor = 0;
+
+function openTagEditor(pid){
+  const p = papers.find(x=>x.id===pid);
+  if (!p) return;
+  tagPid = pid;
+  editTags = (p.tags||[]).map(t=>({text:t.text, color:t.color}));
+  selColor = 0;
+  $("#tagPaperTitle").textContent = p.title || pid;
+  $("#tagErr").textContent = "";
+  $("#tagText").value = "";
+  renderSwatches();
+  renderTagList();
+  $("#tagModal").classList.remove("hidden");
+  $("#tagText").focus();
+}
+function renderSwatches(){
+  $("#swatches").innerHTML = TAG_COLORS.map((c,i)=>
+    `<div class="swatch ${i===selColor?'sel':''}" data-color="${i}" style="background:${c.fg}"></div>`).join("");
+}
+function renderTagList(){
+  const el = $("#tagList");
+  if (!editTags.length){ el.innerHTML = `<span class="none">아직 태그가 없습니다.</span>`; }
+  else el.innerHTML = editTags.map((t,i)=>{
+    const c = TAG_COLORS[t.color]||TAG_COLORS[0];
+    return `<span class="tag" style="background:${c.bg};color:${c.fg}">${escapeHtml(t.text)}<span class="x" data-rm="${i}">✕</span></span>`;
+  }).join("");
+  $("#tagCount").textContent = `${editTags.length}/10`;
+  $("#tagAddBtn").disabled = editTags.length >= 10;
+}
+async function persistTags(){
+  try{
+    const r = await fetch(`/api/papers/${tagPid}/tags`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({tags:editTags})});
+    const d = await r.json();
+    if (r.ok){ editTags = d.tags; renderTagList(); refresh(); }
+    else $("#tagErr").textContent = d.error || "저장 실패";
+  }catch(e){ $("#tagErr").textContent = "네트워크 오류: "+e.message; }
+}
+$("#swatches").addEventListener("click", e=>{
+  const s = e.target.closest("[data-color]"); if(!s) return;
+  selColor = parseInt(s.dataset.color,10); renderSwatches();
+});
+$("#tagAddBtn").addEventListener("click", ()=>{
+  const text = $("#tagText").value.trim();
+  $("#tagErr").textContent = "";
+  if (!text){ $("#tagErr").textContent = "태그 내용을 입력하세요."; return; }
+  if (editTags.length >= 10){ $("#tagErr").textContent = "태그는 최대 10개입니다."; return; }
+  editTags.push({text:text.slice(0,30), color:selColor});
+  $("#tagText").value = "";
+  persistTags();
+});
+$("#tagText").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#tagAddBtn").click(); });
+$("#tagList").addEventListener("click", e=>{
+  const x = e.target.closest("[data-rm]"); if(!x) return;
+  editTags.splice(parseInt(x.dataset.rm,10),1);
+  persistTags();
+});
+$("#tagClose").addEventListener("click", ()=> $("#tagModal").classList.add("hidden"));
+$("#tagModal").addEventListener("click", e=>{ if(e.target.id==="tagModal") $("#tagModal").classList.add("hidden"); });
+
+// ---- search / sort / tag filter ----
+$("#search").addEventListener("input", e=>{ searchQ = e.target.value; render(); });
+$("#sortBtn").addEventListener("click", ()=>{
+  sortMode = (sortMode+1) % SORT_LABELS.length;
+  $("#sortBtn").textContent = "정렬: " + SORT_LABELS[sortMode];
+  render();
+});
+$("#tagToggle").addEventListener("click", ()=>{
+  showTags = !showTags;
+  $("#tagToggle").classList.toggle("active", showTags);
+  renderTagPanel();
+});
+$("#tagFilterPanel").addEventListener("click", e=>{
+  const all = e.target.closest("[data-all]");
+  if (all){ tagFilter = null; renderTagPanel(); render(); return; }
+  const tg = e.target.closest("[data-tagf]");
+  if (tg){ const t = tg.dataset.tagf; tagFilter = (tagFilter===t) ? null : t; renderTagPanel(); render(); }
+});
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

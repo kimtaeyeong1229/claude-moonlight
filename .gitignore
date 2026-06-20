@@ -1,0 +1,7 @@
+# runtime data (papers, jobs, registry) — third-party paper excerpts/figures
+/data/
+# python venv used for local (non-Docker) verification
+/.venv/
+__pycache__/
+*.pyc
+.DS_Store
