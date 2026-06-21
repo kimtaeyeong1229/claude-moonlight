@@ -91,7 +91,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         if p.terminationStatus == 0 {
             DispatchQueue.main.async {
-                self.web.load(URLRequest(url: URL(string: APP_URL)!))
+                // Ignore any cached page so UI changes always show after a rebuild.
+                let req = URLRequest(url: URL(string: APP_URL)!,
+                                     cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+                self.web.load(req)
             }
         } else {
             let reason: String

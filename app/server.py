@@ -187,7 +187,11 @@ def ensure_sample():
 # ----------------------------- API -----------------------------
 
 async def index(request):
-    return web.FileResponse(STATIC_DIR / "index.html")
+    # no-store: the WKWebView/browser must always fetch the latest UI (avoids
+    # stale CSS/JS after a rebuild).
+    resp = web.FileResponse(STATIC_DIR / "index.html")
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    return resp
 
 
 async def api_health(request):
