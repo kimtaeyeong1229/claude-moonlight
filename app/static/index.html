@@ -305,7 +305,7 @@ $$('.pane').forEach(pane=>{
   pane.addEventListener('mouseover',e=>{ const el=e.target.closest('[data-sid]'); if(!el)return;
     const sid=el.dataset.sid; if(sid===activeSid)return; if(activeSid)setHL(activeSid,false);
     activeSid=sid; setHL(sid,true,side); });
-  pane.addEventListener('mouseleave',()=>{ if(activeSid){setHL(activeSid,false);activeSid=null;} });
+  // (의도) 패널을 벗어나도 하이라이트 유지 — 다른 문장을 hover 할 때만 옮겨감.
   pane.addEventListener('click',e=>{ if(e.detail>1)return; const el=e.target.closest('[data-sid]'); if(!el)return;
     $$(`[data-sid="${el.dataset.sid}"]`).forEach(t=>t.scrollIntoView({behavior:'smooth',block:'center'})); });
   pane.addEventListener('dblclick',e=>handleWordPair(e,pane));
