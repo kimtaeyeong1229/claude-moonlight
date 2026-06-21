@@ -17,7 +17,9 @@
   --bg:#f7f7f5; --panel:#ffffff; --ink:#242424; --muted:#7a7a7a; --line:#e8e8e8;
   --accent:#1a8917; --accent-d:#136d12; --warn:#c0392b; --queued:#b8860b;
   --hl:rgba(56,132,255,.20); --hl-strong:rgba(56,132,255,.34); --hl-border:rgba(56,132,255,.55);
-  --maxw:150ch; --side:300px;
+  --maxw:100ch;        /* 단면(원문/번역): 넓게 */
+  --maxw-split:66ch;   /* 반반: 각 패널 안에서 여유 있게 */
+  --side:300px;
 }
 body.theme-dark{ --bg:#16181c; --panel:#1e2127; --ink:#d7dae0; --muted:#8b919c; --line:#2c3037;
   --hl:rgba(86,156,255,.26); --hl-strong:rgba(86,156,255,.42); --accent:#4caf50; --accent-d:#7bd17e; }
@@ -97,7 +99,8 @@ body.side-collapsed #sidebar{ margin-left:calc(-1 * var(--side)); }
   background:color-mix(in srgb,var(--panel) 88%,transparent); padding:7px 0; text-align:center;
   font-size:.66rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
   color:var(--muted); border-bottom:1px solid var(--line); }
-.doc{ max-width:var(--maxw); margin:0 auto; padding:30px 28px 50vh; }
+.doc{ max-width:var(--maxw-split); margin:0 auto; padding:30px 28px 50vh; }
+#panes.left-only .doc, #panes.right-only .doc{ max-width:var(--maxw); }
 .pane.left .doc{ font-family:'Noto Serif KR',Georgia,serif; line-height:1.62; }
 .pane.right .doc{ font-family:'Noto Sans KR',sans-serif; line-height:1.78; word-break:keep-all; }
 #panes.left-only .pane.right, #panes.right-only .pane.left{ display:none; }
